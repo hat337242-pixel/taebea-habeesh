@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "Person": {
+      "title": "Person",
+      "description": "Mobilization member details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "phone": { "type": "string" },
+        "zone": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "ReportEntry": {
+      "title": "ReportEntry",
+      "description": "Attendance status and notes for a specific person on a given day",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["completed", "late", "excused", "missing"] },
+        "activity": { "type": "string" },
+        "notes": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "isPendingApproval": { "type": "boolean" },
+        "submittedBy": { "type": "string" }
+      },
+      "required": ["status"]
+    },
+    "DailyReport": {
+      "title": "DailyReport",
+      "description": "Report of attendance and activities for a single day",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "entries": { "type": "object" }
+      },
+      "required": ["date", "entries"]
+    },
+    "FieldActivity": {
+      "title": "FieldActivity",
+      "description": "Details of an activity carried out in the field",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "date": { "type": "string" },
+        "location": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "participantsCount": { "type": "number" },
+        "description": { "type": "string" },
+        "images": { "type": "array" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "title", "date", "location"]
+    },
+    "Config": {
+      "title": "Config",
+      "description": "Office names and configuration",
+      "type": "object",
+      "properties": {
+        "officeName": { "type": "string" },
+        "districtName": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "mobilization_data/people": {
+      "schema": "Person",
+      "description": "List of individuals under mobilization"
+    },
+    "mobilization_data/reports": {
+      "schema": "DailyReport",
+      "description": "List of daily reports"
+    },
+    "mobilization_data/activities": {
+      "schema": "FieldActivity",
+      "description": "List of field activities"
+    },
+    "mobilization_data/config": {
+      "schema": "Config",
+      "description": "General settings"
+    }
+  }
+}
