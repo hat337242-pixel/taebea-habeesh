@@ -53,28 +53,39 @@ interface LocalData {
   people: any[];
   reports: any[];
   activities: any[];
+  vigils: any[];
+  vigilAlerts: any[];
+  zoneTasks?: any[];
   officeName: string;
   districtName: string;
   logins: any[];
+  securityLogs?: any[];
 }
 
 const defaultLocalData: LocalData = {
   people: [],
   reports: [],
   activities: [],
+  vigils: [],
+  vigilAlerts: [],
+  zoneTasks: [],
   officeName: "مكتب التعبئة العامة",
   districtName: "مديرية حبيش",
-  logins: []
+  logins: [],
+  securityLogs: []
 };
 
 function readLocalData(): LocalData {
   try {
     if (fs.existsSync(LOCAL_DB_FILE)) {
-      const content = fs.readFileSync(LOCAL_DB_FILE, "utf8");
+      const content = fs.readFileSync(LOCAL_DB_FILE, "utf8").trim();
+      if (!content) {
+        return { ...defaultLocalData };
+      }
       return JSON.parse(content);
     }
   } catch (err) {
-    console.error("Failed to read local fallback DB:", err);
+    console.error("Failed to read local fallback DB (falling back to default template):", err);
   }
   return { ...defaultLocalData };
 }
@@ -207,12 +218,16 @@ app.get("/api/all-data", async (req, res) => {
   try {
     const result = await runWithDatabaseFallback(
       async (currentDb) => {
-        const [peopleDoc, reportsDoc, activitiesDoc, configDoc, loginsDoc] = await Promise.all([
+        const [peopleDoc, reportsDoc, activitiesDoc, configDoc, loginsDoc, vigilsDoc, vigilAlertsDoc, zoneTasksDoc, securityLogsDoc] = await Promise.all([
           getDoc(doc(currentDb, "mobilization_data", "people")),
           getDoc(doc(currentDb, "mobilization_data", "reports")),
           getDoc(doc(currentDb, "mobilization_data", "activities")),
           getDoc(doc(currentDb, "mobilization_data", "config")),
-          getDoc(doc(currentDb, "mobilization_data", "logins"))
+          getDoc(doc(currentDb, "mobilization_data", "logins")),
+          getDoc(doc(currentDb, "mobilization_data", "vigils")),
+          getDoc(doc(currentDb, "mobilization_data", "vigil_alerts")),
+          getDoc(doc(currentDb, "mobilization_data", "zone_tasks")),
+          getDoc(doc(currentDb, "mobilization_data", "security_logs"))
         ]);
 
         // If no data exists yet on Firestore, return empty so the client can seed it
@@ -224,6 +239,10 @@ app.get("/api/all-data", async (req, res) => {
         const reports = reportsDoc.exists() ? reportsDoc.data()?.data : [];
         const activities = activitiesDoc.exists() ? activitiesDoc.data()?.data : [];
         const logins = loginsDoc.exists() ? loginsDoc.data()?.data : [];
+        const vigils = vigilsDoc.exists() ? vigilsDoc.data()?.data : [];
+        const vigilAlerts = vigilAlertsDoc.exists() ? vigilAlertsDoc.data()?.data : [];
+        const zoneTasks = zoneTasksDoc.exists() ? zoneTasksDoc.data()?.data : [];
+        const securityLogs = securityLogsDoc.exists() ? securityLogsDoc.data()?.data : [];
         const config = configDoc.exists() ? configDoc.data() : null;
 
         return {
@@ -231,6 +250,10 @@ app.get("/api/all-data", async (req, res) => {
           reports: reports || [],
           activities: activities || [],
           logins: logins || [],
+          vigils: vigils || [],
+          vigilAlerts: vigilAlerts || [],
+          zoneTasks: zoneTasks || [],
+          securityLogs: securityLogs || [],
           officeName: config?.officeName || "مكتب التعبئة العامة",
           districtName: config?.districtName || "مديرية حبيش"
         };
@@ -244,7 +267,11 @@ app.get("/api/all-data", async (req, res) => {
           people: local.people,
           reports: local.reports,
           activities: local.activities,
+          vigils: local.vigils || [],
+          vigilAlerts: local.vigilAlerts || [],
+          zoneTasks: local.zoneTasks || [],
           logins: local.logins || [],
+          securityLogs: local.securityLogs || [],
           officeName: local.officeName,
           districtName: local.districtName
         };
@@ -261,7 +288,7 @@ app.get("/api/all-data", async (req, res) => {
 // API to save data to Cloud Firestore with fallback
 app.post("/api/save", async (req, res) => {
   try {
-    const { people, reports, activities, officeName, districtName, logins } = req.body;
+    const { people, reports, activities, officeName, districtName, logins, vigils, vigilAlerts, zoneTasks, securityLogs } = req.body;
     
     // Always save locally first to ensure robust local cache persistence
     writeLocalData({
@@ -270,7 +297,11 @@ app.post("/api/save", async (req, res) => {
       ...(activities !== undefined && { activities }),
       ...(officeName !== undefined && { officeName }),
       ...(districtName !== undefined && { districtName }),
-      ...(logins !== undefined && { logins })
+      ...(logins !== undefined && { logins }),
+      ...(vigils !== undefined && { vigils }),
+      ...(vigilAlerts !== undefined && { vigilAlerts }),
+      ...(zoneTasks !== undefined && { zoneTasks }),
+      ...(securityLogs !== undefined && { securityLogs })
     });
 
     await runWithDatabaseFallback(
@@ -288,6 +319,18 @@ app.post("/api/save", async (req, res) => {
         }
         if (logins !== undefined) {
           batch.set(doc(currentDb, "mobilization_data", "logins"), { data: logins });
+        }
+        if (vigils !== undefined) {
+          batch.set(doc(currentDb, "mobilization_data", "vigils"), { data: vigils });
+        }
+        if (vigilAlerts !== undefined) {
+          batch.set(doc(currentDb, "mobilization_data", "vigil_alerts"), { data: vigilAlerts });
+        }
+        if (zoneTasks !== undefined) {
+          batch.set(doc(currentDb, "mobilization_data", "zone_tasks"), { data: zoneTasks });
+        }
+        if (securityLogs !== undefined) {
+          batch.set(doc(currentDb, "mobilization_data", "security_logs"), { data: securityLogs });
         }
         if (officeName !== undefined || districtName !== undefined) {
           const configDocRef = doc(currentDb, "mobilization_data", "config");
@@ -344,7 +387,7 @@ ${JSON.stringify(people.map((p: any) => ({ name: p.name, role: p.role, zone: p.z
 
 المطلوب صياغة برقية مبرقة رسمية غاية في الاحترافية والهيبة الإدارية موجهة إلى القيادة العامة والمحافظة.
 يجب أن تحتوي البرقية على:
-1. البسملة والترويسة الرسمية المعتادة لليمن (الجمهورية اليمنية - وزارة الإدارة المحلية - محافظة إب - مديرية حبيش - مكتب التعبئة العامة).
+1. البسملة والترويسة الرسمية المعتادة لليمن (الجمهورية اليمنية - التعبئة العامة - محافظة إب - مديرية حبيش - مكتب التعبئة العامة).
 2. مقدمة إدارية وطنية رصينة تعبر عن عزم وتفاني كادر مكتب التعبئة في مديرية حبيش لتعزيز الوعي والعمل الاجتماعي والجهوزية.
 3. تفصيل دقيق وجميل مقسم حسب القطاعات (مثال: القطاع الثقافي والتربوي، قطاع الحشد والتعبئة والمربعات الميدانية، قطاع التدريب والتأهيل، القطاع الرياضي والشبابي، قطاع الخدمات والاجتماعي). ادمج تفاصيل الأنشطة الفردية والموثقة بالصور بشكل منسق ومقروء تحت هذه العناوين.
 4. جدول أو قائمة إحصائية منسقة بنص برقي توضح الانضباط البشري لليوم (كم عدد المنجزين، المتأخرين، المجازين، والغير مرفوعين).

@@ -1,0 +1,8 @@
+{
+  "appId": "com.yementabaa.hubaish",
+  "appName": "مكتب التعبئة العامة - حبيش",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
